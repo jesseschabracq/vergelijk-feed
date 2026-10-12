@@ -1,0 +1,70 @@
+name: vergelijk.nl feed
+
+on:
+  schedule:
+    # 4x per dag (UTC). In NL-tijd ongeveer 06:17, 11:17, 16:17 en 21:17 (zomertijd een uur later).
+    - cron: "17 5,10,15,20 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: vergelijk-feed
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - run: pip install lxml
+
+      - name: Feed genereren
+        env:
+          SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+        run: python feed.py --out public
+
+      - name: Feed controleren
+        run: python validate.py public/vergelijk.xml
+
+      - name: Samenvatting
+        if: always()
+        run: |
+          if [ -f public/status.json ]; then
+            { echo '### Feed status'; echo '```json'; cat public/status.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
+      # GitHub zet geplande workflows in publieke repo's uit na 60 dagen zonder activiteit.
+      - name: Keepalive
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( ( $(date +%s) - last ) / 86400 )) -ge 45 ]; then
+            git config user.name "feed-bot"
+            git config user.email "feed-bot@users.noreply.github.com"
+            git commit --allow-empty -m "keepalive"
+            git push
+          fi
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
