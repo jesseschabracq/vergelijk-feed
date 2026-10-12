@@ -4,7 +4,7 @@ Maakt 4x per dag een productfeed voor vergelijk.nl (Compare Group) uit de Shopif
 en zet die op een vaste URL:
 
 ```
-https://<github-gebruikersnaam>.github.io/vergelijk-feed/vergelijk.xml
+https://jesseschabracq.github.io/vergelijk-feed/vergelijk.xml
 ```
 
 Op dezelfde plek staan ook:
