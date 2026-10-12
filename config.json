@@ -5,6 +5,7 @@
   "country": "NL",
   "_shop_reference": "Verplicht veld in het XSD-schema van Compare Group (staat niet in de handleiding).",
   "shop_reference": "livinglovely.nl",
+  "category_names_url": "https://raw.githubusercontent.com/Shopify/product-taxonomy/main/dist/nl/categories.txt",
   "deeplink_utm": "utm_source=vergelijk.nl&utm_medium=cpc&utm_campaign=vergelijk",
 
   "include_out_of_stock": false,
@@ -49,6 +50,9 @@
     "LEEFF": "Leeff",
     "Bazar Bizar Antwerp": "Bazar Bizar"
   },
+
+  "_include_vendors": "Alleen deze merken gaan in de feed (lege lijst = alle merken).",
+  "include_vendors": ["J-Line", "PTMD", "Starfurn", "Livingfurn", "DTP Home", "MUST Living", "Bazar Bizar", "Raw Materials", "Steelful", "Laui Lounge"],
 
   "exclude_vendors": ["EcoCart", "Todo Bien", "Lamelio", "Pole To Pole"],
   "exclude_product_types": ["Carbon Offset", "Cadeauverpakking"],

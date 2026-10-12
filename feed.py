@@ -53,7 +53,7 @@ BULK_QUERY = """
     edges { node {
       id legacyResourceId title handle vendor productType status isGiftCard onlineStoreUrl tags
       descriptionHtml
-      category { fullName }
+      category { id fullName }
       materiaal: metafield(namespace: "my_fields", key: "materiaal") { value }
       dropColour: metafield(namespace: "droppery", key: "colour_") { value }
       dropMaterial: metafield(namespace: "droppery", key: "material_composition") { value }
@@ -447,17 +447,34 @@ class ShippingRules:
         return True
 
 
+def load_category_names(url):
+    """Nederlandse categorienamen uit de publieke Shopify-taxonomie (gid -> pad)."""
+    names = {}
+    if not url:
+        return names
+    try:
+        with urllib.request.urlopen(url, timeout=60) as r:
+            for line in r.read().decode("utf-8").splitlines():
+                if line.startswith("gid://") and " : " in line:
+                    gid, path = line.split(" : ", 1)
+                    names[gid.strip()] = path.strip()
+    except Exception as e:
+        log(f"Categorienamen niet opgehaald ({e}); Shopify-namen gebruikt")
+    return names
+
+
 def mf(product, alias):
     v = product.get(alias)
     return v.get("value") if isinstance(v, dict) else None
 
 
-def build_offers(products, shipping, cfg):
+def build_offers(products, shipping, cfg, category_names=None):
     today = datetime.now(NL_TZ).date().isoformat()
     lead_table = {k.lower(): v for k, v in cfg["vendor_lead_times"].items()}
     display = {k.lower(): v for k, v in cfg.get("brand_display", {}).items()}
     aliases = {k.lower(): v for k, v in cfg.get("brand_aliases", {}).items()}
     excl_vendors = {v.lower() for v in cfg.get("exclude_vendors", [])}
+    incl_vendors = {v.lower() for v in cfg.get("include_vendors", [])}
     excl_types = {t.lower() for t in cfg.get("exclude_product_types", [])}
     excl_handles = set(cfg.get("exclude_handles", []))
     suffix = cfg.get("delivery_time_suffix", "werkdagen")
@@ -482,6 +499,8 @@ def build_offers(products, shipping, cfg):
             continue
         if p.get("isGiftCard"):
             skip(p, "cadeaubon"); continue
+        if incl_vendors and vendor.lower() not in incl_vendors and brand.lower() not in incl_vendors:
+            skip(p, "merk niet in feedlijst"); continue
         if vendor.lower() in excl_vendors or (p.get("productType") or "").lower() in excl_types \
                 or p.get("handle") in excl_handles:
             skip(p, "uitgesloten in config"); continue
@@ -510,7 +529,8 @@ def build_offers(products, shipping, cfg):
         if not lead:
             skip(p, "geen levertijd bekend"); continue
 
-        category_path = ((p.get("category") or {}).get("fullName") or "").strip()
+        cat = p.get("category") or {}
+        category_path = ((category_names or {}).get(cat.get("id")) or cat.get("fullName") or "").strip()
         category = ", ".join(x.strip() for x in category_path.split(">") if x.strip()) or (p.get("productType") or "").strip()
         if not category:
             skip(p, "geen categorie of producttype"); continue
@@ -719,7 +739,10 @@ def main():
 
     products = read_jsonl(jsonl)
     log(f"{len(products)} actieve producten ingelezen")
-    offers, excluded, dupes = build_offers(products, ShippingRules(ship_data), cfg)
+    category_names = load_category_names(cfg.get("category_names_url"))
+    if category_names:
+        log(f"{len(category_names)} Nederlandse categorienamen geladen")
+    offers, excluded, dupes = build_offers(products, ShippingRules(ship_data), cfg, category_names)
     write_xml(offers, out / "vergelijk.xml", cfg)
     status = write_reports(out, offers, excluded, products, dupes, started)
     log(f"Feed: {len(offers)} offers. Uitgesloten: {status['uitgesloten']}")
