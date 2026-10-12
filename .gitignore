@@ -1,0 +1,5 @@
+public/
+products.jsonl
+__pycache__/
+tests/products.jsonl
+tests/shipping.json
