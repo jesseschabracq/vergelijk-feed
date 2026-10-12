@@ -35,7 +35,7 @@ jobs:
         run: python feed.py --out public
 
       - name: Feed controleren
-        run: python validate.py public/vergelijk.xml
+        run: python validate.py public/vergelijk.xml --show-xsd
 
       - name: Samenvatting
         if: always()
