@@ -37,9 +37,11 @@ def main(path):
     for p in problems[:30]:
         print("  -", p)
 
+    xsd_raw = b""
     try:
         with urllib.request.urlopen(XSD_URL, timeout=30) as r:
-            schema = etree.XMLSchema(etree.fromstring(r.read()))
+            xsd_raw = r.read()
+            schema = etree.XMLSchema(etree.fromstring(xsd_raw))
     except Exception as e:  # schema niet bereikbaar: niet blokkeren
         print(f"::warning::XSD niet opgehaald ({e}); alleen basischeck uitgevoerd")
         schema = None
@@ -51,12 +53,20 @@ def main(path):
         else:
             xsd_errors = list(schema.error_log)
             print(f"XSD-validatie: {len(xsd_errors)} fouten")
-            for err in xsd_errors[:30]:
-                print(f"  - regel {err.line}: {err.message}")
+            seen = {}
+            for err in xsd_errors:
+                seen.setdefault(err.message, err.line)
+            for msg, line in list(seen.items())[:30]:
+                print(f"  - {msg} (eerste keer op regel {line})")
+            if "--show-xsd" in sys.argv:
+                print("----- XSD -----")
+                print(xsd_raw.decode("utf-8", errors="replace"))
+                print("----- einde XSD -----")
 
     if problems or xsd_errors:
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "public/vergelijk.xml")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(args[0] if args else "public/vergelijk.xml")
