@@ -1,0 +1,273 @@
+<?xml version="1.0"?>
+<!-- Kopie van https://sc.vergelijk.nl/webshops/CG_feedmodel_schema_v1.4.xsd (opgehaald 12-10-2026).
+     validate.py gebruikt deze alleen als het origineel niet te downloaden is. -->
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="feed">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element type="xs:string" name="type" minOccurs="0"/>
+        <xs:element name="offers">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="offer" maxOccurs="unbounded" minOccurs="0">
+                <xs:complexType>
+                  <xs:all>
+                    <xs:element type="xs:string" name="shopReference"/>
+                    <xs:element type="xs:string" name="shopOfferId" minOccurs="0"/>
+                    <xs:element type="xs:string" name="shopCategory"/>
+                    <xs:element type="xs:string" name="bundleName" minOccurs="0"/>
+                    <xs:element type="xs:string" name="bundleDescription" minOccurs="0"/>
+                    <xs:element name="products">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="product" maxOccurs="unbounded" minOccurs="0">
+                            <xs:complexType>
+                              <xs:all>
+                                <xs:element type="xs:string" name="name"/>
+                                <xs:element type="xs:string" name="description" minOccurs="0"/>
+                                <xs:element type="xs:string" name="brand" minOccurs="0"/>
+                                <xs:element name="identifiers" minOccurs="0" maxOccurs="1">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="identifier" maxOccurs="unbounded" minOccurs="0">
+                                        <xs:complexType>
+                                          <xs:all>
+                                            <xs:element name="type">
+                                              <xs:simpleType>
+                                                <xs:restriction base="xs:string">
+                                                  <xs:pattern value="EAN|SKU"/>
+                                                </xs:restriction>
+                                              </xs:simpleType>
+                                            </xs:element>
+                                            <xs:element type="xs:string" name="value"/>
+                                          </xs:all>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="features" minOccurs="0" maxOccurs="1">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="feature" maxOccurs="unbounded" minOccurs="0">
+                                        <xs:complexType>
+                                          <xs:all>
+                                            <xs:element type="xs:string" name="name"/>
+                                            <xs:element type="xs:string" name="value"/>
+                                          </xs:all>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="state">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="NEW|REFURBISHED"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element type="xs:string" name="productCondition" minOccurs="0"/>
+                                <xs:element type="xs:string" name="variantGroup" minOccurs="0"/>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="basePrice" minOccurs="1">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:decimal">
+                          <xs:minExclusive value="0" />
+                          <xs:pattern value="\d+(\.\d{2})?" />
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element name="originalPrice" minOccurs="0">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:decimal">
+                          <xs:minExclusive value="0" />
+                          <xs:pattern value="\d+(\.\d{2})?" />
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element name="pricePerUnit" minOccurs="0">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:decimal">
+                          <xs:minExclusive value="0" />
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element name="units" minOccurs="0">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:decimal">
+                          <xs:minExclusive value="0" />
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element type="xs:string" name="unit" minOccurs="0"/>
+                    <xs:element type="xs:string" name="promotionText" minOccurs="0"/>
+                    <xs:element type="xs:anyURI" name="deepLink" minOccurs="0"/>
+                    <xs:element name="media" minOccurs="0" maxOccurs="1">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="medium" maxOccurs="unbounded" minOccurs="0">
+                            <xs:complexType>
+                              <xs:all>
+                                <xs:element name="type">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="IMAGE|VIDEO|MANUAL"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="url" type="xs:anyURI"/>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="inStock" minOccurs="0">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                          <xs:pattern value="TRUE|FALSE|true|false"/>
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element type="xs:integer" name="nrInStock" minOccurs="0"/>
+                    <xs:element name="publish" minOccurs="0">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                          <xs:pattern value="true|false"/>
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                    <xs:element name="shippingOptions">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="shippingOption" maxOccurs="unbounded" minOccurs="0">
+                            <xs:complexType>
+                              <xs:all>
+                                <xs:element name="countryCode">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="NL|BE|FR|FI"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element type="xs:string" name="deliveryTime"/>
+                                <xs:element type="xs:string" name="description" minOccurs="0"/>
+                                <xs:element name="method">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="PICKUP|DELIVERY|EXPRESS"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="price">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:decimal">
+                                      <xs:minInclusive value="0" />
+                                      <xs:pattern value="(\d*\.\d{2})|(\d+)" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="services" minOccurs="0" maxOccurs="1">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="service" maxOccurs="unbounded" minOccurs="0">
+                            <xs:complexType>
+                              <xs:all>
+                                <xs:element name="countryCode">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="NL|BE|FR|FI"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element type="xs:string" name="name"/>
+                                <xs:element name="price">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:decimal">
+                                      <xs:minInclusive value="0" />
+                                      <xs:pattern value="(\d*\.\d{2})|(\d+)" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="type">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="WARRANTY|INSTALLATION|PACKAGING"/>
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="deals" minOccurs="0" maxOccurs="1">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="deal" maxOccurs="unbounded" minOccurs="0">
+                            <xs:complexType>
+                              <xs:all>
+                                <xs:element name="type">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="CASHBACK|FREE_GIFT|DISCOUNT|BUNDLE" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="startDateTime" type="xs:dateTime" minOccurs="0" maxOccurs="1" />
+                                <xs:element name="endDateTime" type="xs:dateTime" minOccurs="0" maxOccurs="1" />
+                                <xs:element name="redeemDateTime" type="xs:dateTime" minOccurs="0" maxOccurs="1" />
+                                <xs:element type="xs:string" name="promotionText" />
+                                <xs:element type="xs:string" name="termsAndConditions" minOccurs="0" maxOccurs="1" />
+                                <xs:element name="discountAmount" minOccurs="0" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:decimal">
+                                      <xs:minInclusive value="0" />
+                                      <xs:pattern value="(\d*\.\d{2})|(\d+)" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="discountPercentage" minOccurs="0" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:decimal">
+                                      <xs:minInclusive value="0" />
+                                      <xs:pattern value="(\d*\.\d{2})|(\d+)" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="hidden" minOccurs="0" maxOccurs="1">
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="true|false" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                              </xs:all>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:all>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
