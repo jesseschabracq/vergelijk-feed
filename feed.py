@@ -319,10 +319,11 @@ def lead_time_from_description(desc_html):
     m = LEAD_RANGE.search(text)
     if m:
         a, b = int(m.group(1)), int(m.group(2))
-        if 0 < a <= b <= 60:
+        if 0 < a <= b <= 30 and b - a <= 10:
             return f"{a}-{b}" if a != b else str(a)
+        return None  # bv. "2-45": typefout, merktabel gebruiken
     m = LEAD_SINGLE.search(text)
-    if m and 0 < int(m.group(1)) <= 60:
+    if m and 0 < int(m.group(1)) <= 30:
         return m.group(1)
     return None
 
@@ -347,6 +348,7 @@ def build_description(desc_html, limit):
 def clean_name(title, brand_names):
     name = re.sub(r"[™®©]", "", title or "")
     for b in sorted({b for b in brand_names if b}, key=len, reverse=True):
+        name = re.sub(re.escape(b) + r"\s*$", " ", name.strip(), flags=re.I)  # ook "40uurJ-Line"
         name = re.sub(r"(?<![\w])" + re.escape(b) + r"(?![\w])", " ", name, flags=re.I)
     name = re.sub(r"\s+", " ", name)
     name = re.sub(r"\s*([-–|/])\s*(?:[-–|/]\s*)+", r" \1 ", name)
@@ -531,6 +533,8 @@ def build_offers(products, shipping, cfg, category_names=None):
 
         cat = p.get("category") or {}
         category_path = ((category_names or {}).get(cat.get("id")) or cat.get("fullName") or "").strip()
+        if category_path.lower().startswith(("niet gecategoriseerd", "uncategorized")):
+            category_path = ""
         category = ", ".join(x.strip() for x in category_path.split(">") if x.strip()) or (p.get("productType") or "").strip()
         if not category:
             skip(p, "geen categorie of producttype"); continue
