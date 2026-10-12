@@ -604,7 +604,7 @@ def build_offers(products, shipping, cfg):
                 "deliveryPrice": fmt_price(ship),
             })
 
-    dupes = sum(1 for n, c in names_seen.items() if c > 1)
+    dupes = sorted(n for n, c in names_seen.items() if c > 1)
     return offers, excluded, dupes
 
 
@@ -622,6 +622,7 @@ def write_xml(offers, path, cfg):
         for o in offers:
             i3, i4, i5, i6, i7 = " " * 6, " " * 8, " " * 10, " " * 12, " " * 14
             f.write("    <offer>\n")
+            f.write(x("shopReference", cfg.get("shop_reference", "livinglovely.nl"), i3))
             f.write(x("shopOfferId", o["shopOfferId"], i3))
             f.write(x("shopCategory", o["shopCategory"], i3))
             f.write(f"{i3}<products>\n{i4}<product>\n")
@@ -673,7 +674,8 @@ def write_reports(out, offers, excluded, products, dupes, started):
         "offers_in_feed": len(offers),
         "uitgesloten": dict(reasons.most_common()),
         "offers_per_merk": dict(by_brand.most_common()),
-        "dubbele_productnamen": dupes,
+        "dubbele_productnamen": len(dupes),
+        "dubbele_productnamen_lijst": dupes[:100],
     }
     (out / "status.json").write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
     with open(out / "excluded.csv", "w", newline="", encoding="utf-8-sig") as fh:

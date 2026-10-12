@@ -8,6 +8,7 @@ Exit 1 bij fouten, zodat GitHub Actions de feed dan niet publiceert.
 """
 import sys
 import urllib.request
+from pathlib import Path
 from lxml import etree
 
 XSD_URL = "https://sc.vergelijk.nl/webshops/CG_feedmodel_schema_v1.4.xsd"
@@ -42,9 +43,15 @@ def main(path):
         with urllib.request.urlopen(XSD_URL, timeout=30) as r:
             xsd_raw = r.read()
             schema = etree.XMLSchema(etree.fromstring(xsd_raw))
-    except Exception as e:  # schema niet bereikbaar: niet blokkeren
-        print(f"::warning::XSD niet opgehaald ({e}); alleen basischeck uitgevoerd")
-        schema = None
+    except Exception as e:  # schema niet bereikbaar: lokale kopie gebruiken
+        local = Path(__file__).resolve().parent / "tests" / "cg_schema.xsd"
+        if local.exists():
+            print(f"::warning::XSD niet opgehaald ({e}); lokale kopie gebruikt")
+            xsd_raw = local.read_bytes()
+            schema = etree.XMLSchema(etree.fromstring(xsd_raw))
+        else:
+            print(f"::warning::XSD niet opgehaald ({e}); alleen basischeck uitgevoerd")
+            schema = None
 
     xsd_errors = []
     if schema is not None:

@@ -3,6 +3,8 @@
   "api_version": "2026-07",
   "store_url": "https://livinglovely.nl",
   "country": "NL",
+  "_shop_reference": "Verplicht veld in het XSD-schema van Compare Group (staat niet in de handleiding).",
+  "shop_reference": "livinglovely.nl",
   "deeplink_utm": "utm_source=vergelijk.nl&utm_medium=cpc&utm_campaign=vergelijk",
 
   "include_out_of_stock": false,
