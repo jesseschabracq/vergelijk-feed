@@ -16,6 +16,8 @@
   "max_description_length": 5000,
 
   "delivery_time_suffix": "werkdagen",
+  "_christmas": "Tussen deze datums (MM-DD) tonen beide feeds deze vaste levertijd: bestellingen na 22 december komen pas begin januari aan.",
+  "christmas": {"from": "12-23", "to": "12-31", "text": "begin januari"},
   "shipping_description": "Thuisbezorgd met Track & Trace",
 
   "_vendor_lead_times": "Levertijd in werkdagen per merk. Wordt alleen gebruikt als de productbeschrijving zelf geen regel 'Levertijd X-Y dagen' bevat. Merk niet in deze lijst en geen regel in de beschrijving = product gaat niet mee in de feed.",
@@ -28,14 +30,14 @@
     "J-Line": "1-2",
     "Leeff": "1-2",
     "Bazar Bizar": "3-7",
-    "Steelful": "1-3",
+    "Steelful": "2-4",
     "Laui Lounge": "5-10",
     "Starfurn": "2-5",
-    "Höfats": "1-3"
+    "Höfats": "2-5"
   },
 
   "_force_vendor_lead_time": "Merken waarbij de levertijd uit de tabel hierboven altijd wint, ook als de productbeschrijving iets anders zegt.",
-  "force_vendor_lead_time": ["Starfurn"],
+  "force_vendor_lead_time": ["Starfurn", "Steelful"],
 
   "_brand_aliases": "Extra namen die uit de producttitel worden gehaald naast de vendor-naam zelf.",
   "brand_aliases": {
@@ -56,5 +58,13 @@
 
   "exclude_vendors": ["EcoCart", "Todo Bien", "Lamelio", "Pole To Pole"],
   "exclude_product_types": ["Carbon Offset", "Cadeauverpakking"],
-  "exclude_handles": []
+  "exclude_handles": [],
+
+  "_beslist": "Instellingen voor beslist.xml. Lege show_vendors = zelfde merken als include_vendors (vergelijk.nl).",
+  "beslist": {
+    "show_vendors": [],
+    "min_image_size": 800,
+    "not_deliverable_text": "niet leverbaar",
+    "deeplink_utm": "utm_source=beslist.nl&utm_medium=cpc&utm_campaign=beslist"
+  }
 }

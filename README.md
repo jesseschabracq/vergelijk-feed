@@ -1,6 +1,6 @@
 # vergelijk.nl feed – Living Lovely
 
-Maakt 4x per dag een productfeed voor vergelijk.nl (Compare Group) uit de Shopify-shop
+Maakt elke 2 uur productfeeds voor vergelijk.nl (Compare Group) en beslist.nl uit de Shopify-shop
 en zet die op een vaste URL:
 
 ```
@@ -37,6 +37,20 @@ Op dezelfde plek staan ook:
 Niet gepubliceerd in de webshop, niet op voorraad, voorraad 0 met "doorverkopen" aan,
 pre-order (verwachte leverdatum in de toekomst), geen verzendtarief naar NL, geen foto van
 minimaal 500x500, geen levertijd bekend, cadeaubonnen en wat in `config.json` is uitgesloten.
+
+## beslist.nl
+
+Dezelfde run maakt ook `beslist.xml`:
+
+```
+https://jesseschabracq.github.io/vergelijk-feed/beslist.xml
+```
+
+- Formaat: Google Shopping (RSS 2.0, `g:`-velden) plus de beslist.nl-kolommen `levertijd`, `weergave` en `verzendkosten`.
+- Bevat het volledige webshop-assortiment, zoals beslist.nl vraagt. `weergave` is 1 voor producten die getoond mogen worden en 0 voor de rest. Niet leverbare producten krijgen levertijd "niet leverbaar".
+- Getoond worden dezelfde merken als bij vergelijk.nl (`include_vendors`), tenzij `beslist.show_vendors` in `config.json` een eigen lijst heeft.
+- Foto's moeten minimaal 800x800 zijn; anders `weergave` 0.
+- De feeds worden elke 2 uur ververst.
 
 ## Aanpassen
 

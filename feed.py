@@ -470,6 +470,17 @@ def mf(product, alias):
     return v.get("value") if isinstance(v, dict) else None
 
 
+def delivery_text(lead, cfg, suffix=None):
+    """Levertijdtekst; in de kerstperiode (config 'christmas') een vaste tekst."""
+    xmas = cfg.get("christmas") or {}
+    if xmas.get("from") and xmas.get("to"):
+        today = datetime.now(NL_TZ).strftime("%m-%d")
+        if xmas["from"] <= today <= xmas["to"]:
+            return xmas.get("text", "begin januari")
+    suffix = cfg.get("delivery_time_suffix", "werkdagen") if suffix is None else suffix
+    return f"{lead} {suffix}".strip()
+
+
 def build_offers(products, shipping, cfg, category_names=None):
     today = datetime.now(NL_TZ).date().isoformat()
     lead_table = {k.lower(): v for k, v in cfg["vendor_lead_times"].items()}
@@ -624,7 +635,7 @@ def build_offers(products, shipping, cfg, category_names=None):
                 "deepLink": link,
                 "images": images,
                 "inStock": "TRUE" if available else "FALSE",
-                "deliveryTime": f"{lead} {suffix}".strip(),
+                "deliveryTime": delivery_text(lead, cfg, suffix),
                 "deliveryPrice": fmt_price(ship),
             })
 
@@ -688,7 +699,177 @@ def write_xml(offers, path, cfg):
         f.write("  </offers>\n</feed>\n")
 
 
-def write_reports(out, offers, excluded, products, dupes, started):
+
+# --------------------------------------------------------------------------- #
+# beslist.nl (Google Shopping-formaat + beslist-kolommen levertijd/weergave)
+# --------------------------------------------------------------------------- #
+
+def build_beslist(products, shipping, cfg, category_names=None):
+    """Volledig webshop-assortiment; weergave 0/1 bepaalt of beslist.nl het toont."""
+    bcfg = cfg.get("beslist", {})
+    today = datetime.now(NL_TZ).date().isoformat()
+    lead_table = {k.lower(): v for k, v in cfg["vendor_lead_times"].items()}
+    display = {k.lower(): v for k, v in cfg.get("brand_display", {}).items()}
+    show = {v.lower() for v in (bcfg.get("show_vendors") or cfg.get("include_vendors") or [])}
+    excl_vendors = {v.lower() for v in cfg.get("exclude_vendors", [])}
+    excl_types = {t.lower() for t in cfg.get("exclude_product_types", [])}
+    excl_handles = set(cfg.get("exclude_handles", []))
+    forced = {v.lower() for v in cfg.get("force_vendor_lead_time", [])}
+    min_img = bcfg.get("min_image_size", 800)
+    not_deliverable = bcfg.get("not_deliverable_text", "niet leverbaar")
+    utm = bcfg.get("deeplink_utm", "")
+
+    items, hidden = [], Counter()
+    for p in products:
+        if p.get("status") != "ACTIVE" or p.get("isGiftCard") or not p.get("onlineStoreUrl"):
+            continue
+        vendor = (p.get("vendor") or "").strip()
+        brand = display.get(vendor.lower(), vendor)
+        all_imgs, big_imgs = [], []
+        for m in p.get("_images", []):
+            img = m.get("image") or {}
+            if img.get("url"):
+                all_imgs.append(img["url"])
+                if min(img.get("width") or 0, img.get("height") or 0) >= min_img:
+                    big_imgs.append(img["url"])
+        if not all_imgs:
+            continue  # zonder foto kan een product niet in een shoppingfeed
+        reasons = []
+        if (show and vendor.lower() not in show and brand.lower() not in show) or vendor.lower() in excl_vendors \
+                or (p.get("productType") or "").lower() in excl_types or p.get("handle") in excl_handles:
+            reasons.append("merk niet getoond")
+        preorder = (mf(p, "preOrder") or "").lower() == "true" or (mf(p, "preOrderDate") or "") >= today
+        if preorder:
+            reasons.append("pre-order")
+        images = (big_imgs or all_imgs)[: cfg["max_images"]]
+        if not big_imgs:
+            reasons.append(f"geen foto van min. {min_img}x{min_img}")
+        desc_html = p.get("descriptionHtml") or ""
+        table_lead = lead_table.get(vendor.lower()) or lead_table.get(brand.lower())
+        lead = table_lead if (vendor.lower() in forced or brand.lower() in forced) \
+            else (lead_time_from_description(desc_html) or table_lead)
+        if not lead:
+            reasons.append("geen levertijd bekend")
+        cat = p.get("category") or {}
+        cat_path = ((category_names or {}).get(cat.get("id")) or cat.get("fullName") or "").strip()
+        if cat_path.lower().startswith(("niet gecategoriseerd", "uncategorized")):
+            cat_path = ""
+        cat_path = cat_path or (p.get("productType") or "").strip()
+        title = clean_text(re.sub(r"\s+", " ", re.sub(r"[™®©]", "", p.get("title") or "")))
+        description = build_description(desc_html, cfg["max_description_length"])
+        specs = spec_items(desc_html)
+        colour = specs.get("kleur") or mf(p, "dropColour")
+        material = specs.get("materiaal") or specs.get("materialen") or mf(p, "materiaal") or top_materials(mf(p, "dropMaterial"))
+        variants = p.get("_variants", [])
+        multi = len(variants) > 1
+        dims = {} if multi else parse_dimensions(specs.get("afmetingen"))
+
+        for v in variants:
+            try:
+                price = float(v.get("price") or 0)
+            except ValueError:
+                price = 0
+            if price <= 0:
+                continue
+            vreasons = list(reasons)
+            available = bool(v.get("availableForSale"))
+            tracked = (v.get("inventoryItem") or {}).get("tracked")
+            backorder = available and tracked and (v.get("inventoryQuantity") or 0) <= 0
+            if not available:
+                vreasons.append("niet op voorraad")
+            elif backorder and not cfg.get("include_backorders"):
+                vreasons.append("geen voorraad (doorverkopen staat aan)")
+            w = ((v.get("inventoryItem") or {}).get("measurement") or {}).get("weight") or {}
+            weight_kg = float(w.get("value") or 0) * WEIGHT_TO_KG.get(w.get("unit"), 1.0)
+            ship = shipping.price((v.get("deliveryProfile") or {}).get("id"), price, weight_kg)
+            if ship is None:
+                vreasons.append("geen verzendtarief naar NL")
+            deliverable = available and not (backorder and not cfg.get("include_backorders")) and not preorder and bool(lead)
+            vtitle = (v.get("title") or "").strip()
+            name = title if (not multi or vtitle.lower() == "default title") else f"{title} {vtitle}"
+            link = p["onlineStoreUrl"]
+            params = ([f"variant={v['legacyResourceId']}"] if multi else []) + ([utm] if utm else [])
+            if params:
+                link += ("&" if "?" in link else "?") + "&".join(params)
+            ean = valid_gtin(v.get("barcode")) or (valid_gtin(mf(p, "dropEan")) if not multi else None)
+            weergave = 0 if vreasons else 1
+            for r in vreasons[:1]:
+                hidden[r] += 1
+            items.append({
+                "id": str(v["legacyResourceId"]),
+                "title": name,
+                "description": description,
+                "link": link,
+                "images": images,
+                "availability": "preorder" if preorder else ("in_stock" if available and not backorder else "out_of_stock"),
+                "price": f"{price:.2f} EUR",
+                "brand": brand,
+                "gtin": ean,
+                "mpn": (v.get("sku") or "").strip(),
+                "product_type": cat_path,
+                "item_group_id": p.get("handle") if multi else None,
+                "color": clean_text(colour)[:80] if colour else None,
+                "material": clean_text(material)[:120] if material else None,
+                "dims": dims,
+                "weight": f"{fmt_num(weight_kg)} kg" if weight_kg > 0 else None,
+                "shipping": f"{ship:.2f}" if ship is not None else None,
+                "levertijd": delivery_text(lead, cfg) if deliverable else not_deliverable,
+                "weergave": weergave,
+            })
+    return items, hidden
+
+
+def write_beslist(items, path, cfg):
+    def el(tag, value, ind="      "):
+        return f"{ind}<{tag}>{escape(clean_text(str(value)))}</{tag}>\n"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n')
+        f.write(el("title", "Living Lovely", "    ") + el("link", cfg["store_url"], "    ")
+                + el("description", "Productfeed Living Lovely voor beslist.nl", "    "))
+        for it in items:
+            f.write("    <item>\n")
+            f.write(el("g:id", it["id"]))
+            f.write(el("title", it["title"]))
+            if it["description"]:
+                f.write(el("description", it["description"]))
+            f.write(el("link", it["link"]))
+            f.write(el("g:image_link", it["images"][0]))
+            for extra in it["images"][1:]:
+                f.write(el("g:additional_image_link", extra))
+            f.write(el("g:availability", it["availability"]))
+            f.write(el("g:price", it["price"]))
+            f.write(el("g:brand", it["brand"]))
+            if it["gtin"]:
+                f.write(el("g:gtin", it["gtin"]))
+            if it["mpn"]:
+                f.write(el("g:mpn", it["mpn"]))
+            if not it["gtin"] and not it["mpn"]:
+                f.write(el("g:identifier_exists", "no"))
+            f.write(el("g:condition", "new"))
+            if it["product_type"]:
+                f.write(el("g:product_type", it["product_type"]))
+            if it["item_group_id"]:
+                f.write(el("g:item_group_id", it["item_group_id"]))
+            if it["color"]:
+                f.write(el("g:color", it["color"]))
+            if it["material"]:
+                f.write(el("g:material", it["material"]))
+            for key, tag in (("length", "g:product_length"), ("width", "g:product_width"), ("height", "g:product_height")):
+                if it["dims"].get(key):
+                    f.write(el(tag, it["dims"][key]))
+            if it["weight"]:
+                f.write(el("g:shipping_weight", it["weight"]))
+            if it["shipping"] is not None:
+                f.write(f"      <g:shipping>\n{el('g:country', cfg['country'], '        ')}"
+                        f"{el('g:service', 'Standaard', '        ')}{el('g:price', it['shipping'] + ' EUR', '        ')}      </g:shipping>\n")
+                f.write(el("verzendkosten", it["shipping"]))
+            f.write(el("levertijd", it["levertijd"]))
+            f.write(el("weergave", it["weergave"]))
+            f.write("    </item>\n")
+        f.write("  </channel>\n</rss>\n")
+
+
+def write_reports(out, offers, excluded, products, dupes, started, beslist=None):
     reasons = Counter(e["reden"] for e in excluded)
     by_brand = Counter(o["brand"] for o in offers)
     status = {
@@ -701,6 +882,15 @@ def write_reports(out, offers, excluded, products, dupes, started):
         "dubbele_productnamen": len(dupes),
         "dubbele_productnamen_lijst": dupes[:100],
     }
+    if beslist is not None:
+        items, hidden = beslist
+        shown = [i for i in items if i["weergave"] == 1]
+        status["beslist"] = {
+            "producten_in_feed": len(items),
+            "zichtbaar": len(shown),
+            "niet_zichtbaar": dict(hidden.most_common()),
+            "zichtbaar_per_merk": dict(Counter(i["brand"] for i in shown).most_common()),
+        }
     (out / "status.json").write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
     with open(out / "excluded.csv", "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.DictWriter(fh, fieldnames=["reden", "merk", "product", "variant", "url"], delimiter=";")
@@ -711,10 +901,12 @@ def write_reports(out, offers, excluded, products, dupes, started):
 <meta name="robots" content="noindex"><title>Living Lovely feed</title>
 <style>body{{font:15px/1.5 Arial,sans-serif;color:#1C1A18;max-width:640px;margin:40px auto;padding:0 16px}}
 h1{{font-family:Georgia,serif;font-weight:600}}td{{padding:2px 12px 2px 0}}a{{color:#96836F}}</style>
-<h1>vergelijk.nl feed</h1>
-<p>Laatst gegenereerd: {status['gegenereerd']}<br>Offers in feed: <b>{len(offers)}</b> van {len(products)} actieve producten</p>
-<p><a href="vergelijk.xml">vergelijk.xml</a> · <a href="status.json">status.json</a> · <a href="excluded.csv">excluded.csv</a></p>
-<h3>Niet in de feed</h3><table>{rows}</table>
+<h1>Living Lovely feeds</h1>
+<p>Laatst gegenereerd: {status['gegenereerd']}</p>
+<p><b>vergelijk.nl:</b> {len(offers)} producten · <a href="vergelijk.xml">vergelijk.xml</a> · <a href="excluded.csv">excluded.csv</a><br>
+<b>beslist.nl:</b> {status.get('beslist', {}).get('zichtbaar', 0)} zichtbaar van {status.get('beslist', {}).get('producten_in_feed', 0)} · <a href="beslist.xml">beslist.xml</a><br>
+<a href="status.json">status.json</a></p>
+<h3>Niet in de vergelijk.nl-feed</h3><table>{rows}</table>
 """, encoding="utf-8")
     return status
 
@@ -748,11 +940,15 @@ def main():
         log(f"{len(category_names)} Nederlandse categorienamen geladen")
     offers, excluded, dupes = build_offers(products, ShippingRules(ship_data), cfg, category_names)
     write_xml(offers, out / "vergelijk.xml", cfg)
-    status = write_reports(out, offers, excluded, products, dupes, started)
-    log(f"Feed: {len(offers)} offers. Uitgesloten: {status['uitgesloten']}")
+    b_items, b_hidden = build_beslist(products, ShippingRules(ship_data), cfg, category_names)
+    write_beslist(b_items, out / "beslist.xml", cfg)
+    status = write_reports(out, offers, excluded, products, dupes, started, (b_items, b_hidden))
+    log(f"vergelijk.nl: {len(offers)} offers. Uitgesloten: {status['uitgesloten']}")
+    log(f"beslist.nl: {status['beslist']['zichtbaar']} zichtbaar van {len(b_items)}. Niet zichtbaar: {status['beslist']['niet_zichtbaar']}")
 
-    if len(offers) < cfg.get("min_offers", 0):
-        sys.exit(f"STOP: maar {len(offers)} offers (minimum {cfg['min_offers']}). Feed wordt niet gepubliceerd.")
+    if len(offers) < cfg.get("min_offers", 0) or status["beslist"]["zichtbaar"] < cfg.get("min_offers", 0):
+        sys.exit(f"STOP: te weinig producten (vergelijk {len(offers)}, beslist {status['beslist']['zichtbaar']}, "
+                 f"minimum {cfg['min_offers']}). Feeds worden niet gepubliceerd.")
 
 
 if __name__ == "__main__":

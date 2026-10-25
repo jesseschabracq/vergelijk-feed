@@ -70,8 +70,38 @@ def main(path):
                 print(xsd_raw.decode("utf-8", errors="replace"))
                 print("----- einde XSD -----")
 
-    if problems or xsd_errors:
+    beslist_problems = check_beslist(Path(path).with_name("beslist.xml"))
+    if problems or xsd_errors or beslist_problems:
         sys.exit(1)
+
+
+G = "{http://base.google.com/ns/1.0}"
+BESLIST_REQUIRED = [G + "id", "title", "link", G + "image_link", G + "price", G + "availability", G + "brand",
+                    "levertijd", "weergave"]
+
+
+def check_beslist(path):
+    """Basischeck beslist.xml: welgevormd, verplichte velden, unieke id's, weergave 0/1."""
+    if not path.exists():
+        return []
+    doc = etree.parse(str(path))
+    items = doc.findall("channel/item")
+    problems, ids = [], set()
+    for it in items:
+        iid = it.findtext(G + "id")
+        if iid in ids:
+            problems.append(f"dubbele id {iid}")
+        ids.add(iid)
+        for field in BESLIST_REQUIRED:
+            if not (it.findtext(field) or "").strip():
+                problems.append(f"item {iid}: {field.replace(G, 'g:')} ontbreekt")
+        if it.findtext("weergave") not in ("0", "1"):
+            problems.append(f"item {iid}: weergave moet 0 of 1 zijn")
+    shown = sum(1 for it in items if it.findtext("weergave") == "1")
+    print(f"beslist.xml: {len(items)} items, {shown} zichtbaar, {len(problems)} problemen")
+    for pr in problems[:30]:
+        print("  -", pr)
+    return problems
 
 
 if __name__ == "__main__":
