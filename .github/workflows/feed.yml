@@ -2,8 +2,8 @@ name: vergelijk.nl feed
 
 on:
   schedule:
-    # 4x per dag (UTC). In NL-tijd ongeveer 06:17, 11:17, 16:17 en 21:17 (zomertijd een uur later).
-    - cron: "17 5,10,15,20 * * *"
+    # Elke 2 uur (beslist.nl wil bij voorkeur elke twee uur een update).
+    - cron: "17 */2 * * *"
   workflow_dispatch: {}
 
 permissions:
