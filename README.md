@@ -50,6 +50,7 @@ https://jesseschabracq.github.io/vergelijk-feed/beslist.xml
 - Bevat het volledige webshop-assortiment, zoals beslist.nl vraagt. `weergave` is 1 voor producten die getoond mogen worden en 0 voor de rest. Niet leverbare producten krijgen levertijd "niet leverbaar".
 - Getoond worden dezelfde merken als bij vergelijk.nl (`include_vendors`), tenzij `beslist.show_vendors` in `config.json` een eigen lijst heeft.
 - Foto's moeten minimaal 800x800 zijn; anders `weergave` 0.
+- **België:** `verzendkosten_be` (plus een tweede `g:shipping` met land BE) komt uit de Shopify-verzendzone België, op dezelfde manier als NL. `levertijd_be` is de NL-levertijd plus `beslist.be_extra_days` werkdagen. Geen verzendtarief naar BE = "niet leverbaar in België".
 - De feeds worden elke 2 uur ververst.
 
 ## Aanpassen

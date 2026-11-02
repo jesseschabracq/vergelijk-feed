@@ -65,6 +65,8 @@
     "show_vendors": [],
     "min_image_size": 800,
     "not_deliverable_text": "niet leverbaar",
-    "deeplink_utm": "utm_source=beslist.nl&utm_medium=cpc&utm_campaign=beslist"
+    "deeplink_utm": "utm_source=beslist.nl&utm_medium=cpc&utm_campaign=beslist",
+    "_be_extra_days": "Levertijd België = levertijd NL plus dit aantal werkdagen (bijv. 2-5 wordt 3-6). Verzendkosten België komen uit de Shopify-verzendzone België.",
+    "be_extra_days": 1
   }
 }

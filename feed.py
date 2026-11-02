@@ -481,6 +481,13 @@ def delivery_text(lead, cfg, suffix=None):
     return f"{lead} {suffix}".strip()
 
 
+def shift_lead(lead, days):
+    """'2-5' + 1 -> '3-6'. Alleen getallen worden verschoven; andere tekst blijft staan."""
+    if not lead or not days:
+        return lead
+    return re.sub(r"\d+", lambda m: str(int(m.group()) + days), str(lead))
+
+
 def build_offers(products, shipping, cfg, category_names=None):
     today = datetime.now(NL_TZ).date().isoformat()
     lead_table = {k.lower(): v for k, v in cfg["vendor_lead_times"].items()}
@@ -704,7 +711,7 @@ def write_xml(offers, path, cfg):
 # beslist.nl (Google Shopping-formaat + beslist-kolommen levertijd/weergave)
 # --------------------------------------------------------------------------- #
 
-def build_beslist(products, shipping, cfg, category_names=None):
+def build_beslist(products, shipping, cfg, category_names=None, shipping_be=None):
     """Volledig webshop-assortiment; weergave 0/1 bepaalt of beslist.nl het toont."""
     bcfg = cfg.get("beslist", {})
     today = datetime.now(NL_TZ).date().isoformat()
@@ -718,6 +725,7 @@ def build_beslist(products, shipping, cfg, category_names=None):
     min_img = bcfg.get("min_image_size", 800)
     not_deliverable = bcfg.get("not_deliverable_text", "niet leverbaar")
     utm = bcfg.get("deeplink_utm", "")
+    be_extra = int(bcfg.get("be_extra_days", 0) or 0)
 
     items, hidden = [], Counter()
     for p in products:
@@ -784,6 +792,7 @@ def build_beslist(products, shipping, cfg, category_names=None):
             ship = shipping.price((v.get("deliveryProfile") or {}).get("id"), price, weight_kg)
             if ship is None:
                 vreasons.append("geen verzendtarief naar NL")
+            ship_be = shipping_be.price((v.get("deliveryProfile") or {}).get("id"), price, weight_kg) if shipping_be else None
             deliverable = available and not (backorder and not cfg.get("include_backorders")) and not preorder and bool(lead)
             vtitle = (v.get("title") or "").strip()
             name = title if (not multi or vtitle.lower() == "default title") else f"{title} {vtitle}"
@@ -813,7 +822,10 @@ def build_beslist(products, shipping, cfg, category_names=None):
                 "dims": dims,
                 "weight": f"{fmt_num(weight_kg)} kg" if weight_kg > 0 else None,
                 "shipping": f"{ship:.2f}" if ship is not None else None,
+                "shipping_be": f"{ship_be:.2f}" if ship_be is not None else None,
                 "levertijd": delivery_text(lead, cfg) if deliverable else not_deliverable,
+                "levertijd_be": (delivery_text(shift_lead(lead, be_extra), cfg) if deliverable else not_deliverable)
+                                if ship_be is not None else "niet leverbaar in België",
                 "weergave": weergave,
             })
     return items, hidden
@@ -863,7 +875,12 @@ def write_beslist(items, path, cfg):
                 f.write(f"      <g:shipping>\n{el('g:country', cfg['country'], '        ')}"
                         f"{el('g:service', 'Standaard', '        ')}{el('g:price', it['shipping'] + ' EUR', '        ')}      </g:shipping>\n")
                 f.write(el("verzendkosten", it["shipping"]))
+            if it.get("shipping_be") is not None:
+                f.write(f"      <g:shipping>\n{el('g:country', 'BE', '        ')}"
+                        f"{el('g:service', 'Standaard', '        ')}{el('g:price', it['shipping_be'] + ' EUR', '        ')}      </g:shipping>\n")
+                f.write(el("verzendkosten_be", it["shipping_be"]))
             f.write(el("levertijd", it["levertijd"]))
+            f.write(el("levertijd_be", it["levertijd_be"]))
             f.write(el("weergave", it["weergave"]))
             f.write("    </item>\n")
         f.write("  </channel>\n</rss>\n")
@@ -917,6 +934,7 @@ def main():
     ap.add_argument("--config", default=str(HERE / "config.json"))
     ap.add_argument("--from-jsonl", help="offline: bestaande bulk-export gebruiken")
     ap.add_argument("--shipping-json", help="offline: verzendregels uit bestand")
+    ap.add_argument("--shipping-json-be", help="offline: verzendregels naar België uit bestand")
     args = ap.parse_args()
 
     started = time.time()
@@ -927,10 +945,12 @@ def main():
     if args.from_jsonl:
         jsonl = Path(args.from_jsonl)
         ship_data = json.loads(Path(args.shipping_json).read_text(encoding="utf-8"))
+        ship_be = json.loads(Path(args.shipping_json_be).read_text(encoding="utf-8")) if args.shipping_json_be else None
     else:
         api = Shopify(cfg["shop_domain"], cfg["api_version"])
         ship_data = api.shipping_profiles(cfg["country"])
         log(f"Verzendprofielen: {', '.join(p['name'] for p in ship_data['profiles'].values())}")
+        ship_be = api.shipping_profiles("BE")
         jsonl = api.bulk_products(out.parent / "products.jsonl" if out.parent != out else Path("products.jsonl"))
 
     products = read_jsonl(jsonl)
@@ -940,7 +960,9 @@ def main():
         log(f"{len(category_names)} Nederlandse categorienamen geladen")
     offers, excluded, dupes = build_offers(products, ShippingRules(ship_data), cfg, category_names)
     write_xml(offers, out / "vergelijk.xml", cfg)
-    b_items, b_hidden = build_beslist(products, ShippingRules(ship_data), cfg, category_names)
+    b_items, b_hidden = build_beslist(products, ShippingRules(ship_data), cfg, category_names,
+                                      ShippingRules(ship_be) if ship_be else None)
+    log(f"beslist.nl BE: {sum(1 for i in b_items if i['shipping_be'] is not None)} van {len(b_items)} met verzendkosten naar België")
     write_beslist(b_items, out / "beslist.xml", cfg)
     status = write_reports(out, offers, excluded, products, dupes, started, (b_items, b_hidden))
     log(f"vergelijk.nl: {len(offers)} offers. Uitgesloten: {status['uitgesloten']}")
